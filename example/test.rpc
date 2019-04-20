@@ -1,0 +1,6 @@
+add.h
+int add(int a,int b, int c)
+int sub(int a, int b)
+float mul(float a, float b)
+double div(double a, double b)
+string echo()

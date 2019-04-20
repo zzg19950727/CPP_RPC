@@ -1,0 +1,15 @@
+syntax = "proto3";
+package RPC;
+
+message RPC_request_template
+{
+	string 	method = 1;
+	int32	query_id = 2;
+}
+
+message RPC_response_template
+{
+	string 	method = 1;
+	int32	query_id = 2;
+	int32	state = 3;
+}
