@@ -12,8 +12,8 @@ SOURCE=ResponseHandle.cc \
 RPC_client.cc \
 client_service_config.cc \
 RPC_template.pb.cc \
+IoService.cc \
 $(UTIL_DIR)/buffer.cc \
-$(UTIL_DIR)/IoService.cc \
 $(UTIL_DIR)/TimerManager.cc \
 $(UTIL_DIR)/log_utils.cc
 

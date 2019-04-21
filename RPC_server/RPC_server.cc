@@ -71,7 +71,7 @@ ServerService::ServerService(ServerServiceConfig& config)
 	if(m_fd > 0)
 	{
 		IoService::CallbackFunc func = std::bind(&ServerService::new_connection,this, std::placeholders::_1, std::placeholders::_2);
-		if(m_io_service.register_io(m_fd, IoService::E_READ, func) < 0)
+		if(m_io_service.register_io(m_fd, IoService::E_RW, func) < 0)
 		{
 			close_connection();
 		}

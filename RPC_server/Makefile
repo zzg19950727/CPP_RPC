@@ -13,9 +13,9 @@ RPC_server.cc \
 server_service_config.cc \
 RPC_template.pb.cc \
 ServerMonitor.cc \
+IoService.cc \
 $(UTIL_DIR)/TimerManager.cc \
 $(UTIL_DIR)/buffer.cc \
-$(UTIL_DIR)/IoService.cc \
 $(UTIL_DIR)/log_utils.cc
 
 RPC_client:$(SOURCE)

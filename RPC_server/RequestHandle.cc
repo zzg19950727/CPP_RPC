@@ -81,7 +81,7 @@ void RequestHandle::write_socket(int fd)
 	m_write_cache.have_a_look(tmp);
 	size_t len = tmp.length;
 	len = write(fd, buf, len);
-
+	
 	tmp.length = len;
 	if(len > 0)
 	{
