@@ -12,7 +12,7 @@
 #include <cstring>
 #define BLOCK_SIZE	2048
 
-ClientServiceConfig g_service_config(0);
+ClientServiceConfig g_service_config("RPC_client.conf");
 ClientService g_client_service(g_service_config);
 
 size_t send_request(const std::string& method, int query_id, unsigned char* buf, size_t len)
@@ -37,7 +37,7 @@ std::string const error_string(State s)
 	}
 }
 
-int connect_to_server(const char* ip, int port)
+int connect_to_server(const std::string& ip, int port)
 {
     int fd;
 	fd = socket(PF_INET, SOCK_STREAM, 0);
@@ -45,17 +45,17 @@ int connect_to_server(const char* ip, int port)
 	struct sockaddr_in server_addr;
 	memset(&server_addr, 0, sizeof(server_addr));
 	server_addr.sin_family = AF_INET;
-	server_addr.sin_addr.s_addr = inet_addr(ip);
+	server_addr.sin_addr.s_addr = inet_addr(ip.c_str());
 	server_addr.sin_port = htons(port);
 
     if(connect(fd, (struct sockaddr*)&server_addr, sizeof(server_addr))==-1)
 	{
-		log(LOG_USER|LOG_ERR, "RPC client service connect to %s:%d error:%d", ip, port, errno);
+		log(LOG_USER|LOG_ERR, "RPC client service connect to %s:%d error:%d", ip.c_str(), port, errno);
         return -1;
 	}
     else
 	{
-		log(LOG_USER|LOG_DEBUG, "RPC client service connect to %s:%d success", ip, port);
+		log(LOG_USER|LOG_DEBUG, "RPC client service connect to %s:%d success", ip.c_str(), port);
         return fd;
 	}
 }
@@ -87,6 +87,10 @@ ClientService::ClientService(ClientServiceConfig& config)
 		{
 			close_connection();
 		}
+		else
+		{
+			m_io_service.modify_io_event(m_fd, IoService::E_READ);
+		}
 	}
 }
 
@@ -111,12 +115,21 @@ size_t ClientService::send_request(const std::string& method, int query_id, char
 		std::lock_guard<std::mutex> lock(m_mutex);
 		m_response_handles[tag] = handle;
 	}
-
+	while(1)
+	{
+		m_write_cache.write_package(buf,len);
+		std::this_thread::sleep_for(std::chrono::milliseconds(5));
+		m_io_service.modify_io_event(m_fd, IoService::E_RW);
+	}
 	//write request to cache
 	if(!m_write_cache.write_package(buf,len))
 	{
 		log(LOG_USER|LOG_ERR, "ClientService::send_request write_cache full,rejuect request %s:%d", method.c_str(), query_id);
 		throw std::runtime_error(error_string(S_LOCAL_CACHE_FULL));
+	}
+	else
+	{
+		m_io_service.modify_io_event(m_fd, IoService::E_RW);
 	}
 
 	log(LOG_USER|LOG_DEBUG, "ClientService::send_request %s:%d wait for response,tag %d", method.c_str(), query_id, tag);
@@ -148,21 +161,19 @@ void ClientService::notify_socket(int fd, IoService::Event e)
 
 void ClientService::read_socket(int fd)
 {
-	char buf[BLOCK_SIZE];
+	Buffer buffer;
+	buffer_calloc(buffer, BLOCK_SIZE);
 	size_t len = BLOCK_SIZE;
-	len = read(fd, buf, len);
+	len = read(fd, buffer.data, len);
 	log(LOG_USER|LOG_DEBUG, "ClientService::read_socket recv %zu bytes data",len);
 
-	Buffer tmp;
-	tmp.capacity = BLOCK_SIZE;
-	tmp.length = len;
-	tmp.data = buf;
-	m_read_cache.write(tmp);
+	buffer.length = len;
+	m_read_cache.write(buffer);
 	
    	Header head;
-	Buffer buffer;
 	while(m_read_cache.read_package(head,buffer))
 	{
+		log(LOG_USER|LOG_DEBUG, "ClientService::read_socket read package");
 		int tag = response_tag(buffer.data, buffer.length);
 		std::shared_ptr<ResponseHandle> handle;
 		{
@@ -179,32 +190,38 @@ void ClientService::read_socket(int fd)
 			handle->write(buffer.data, buffer.length);
 		}
 	}
-	buffer_free(buffer);
+	
 	//disconnect
 	if(len == 0)
 	{
 		close_connection();
 	}
+	buffer_free(buffer);
 }
 
 void ClientService::write_socket(int fd)
 {
-	char buf[BLOCK_SIZE];
 	Buffer tmp;
-	tmp.capacity = BLOCK_SIZE;
-	tmp.length = BLOCK_SIZE;
-	tmp.data = buf;
-
-	m_write_cache.have_a_look(tmp);
-	size_t len = tmp.length;
-	len = write(fd, buf, len);
-
-	tmp.length = len;
-	if(len > 0)
+	buffer_calloc(tmp, BLOCK_SIZE);
+	
+	while(true)
 	{
-		m_write_cache.read(tmp);
-		log(LOG_USER|LOG_DEBUG, "ClientService::write_socket send %zu bytes data",len);
+		tmp.length = BLOCK_SIZE;
+		m_write_cache.have_a_look(tmp);
+		size_t len = tmp.length;
+		len = write(fd, tmp.data, len);
+
+		tmp.length = len;
+		if(len > 0)
+		{
+			m_write_cache.read(tmp);
+			log(LOG_USER|LOG_DEBUG, "ClientService::write_socket send %zu bytes data",len);
+		}
+		if(len != BLOCK_SIZE)
+			break;
 	}
+	m_io_service.modify_io_event(m_fd, IoService::E_READ);
+	buffer_free(tmp);
 }
 
 void ClientService::close_connection()

@@ -40,24 +40,22 @@ void RequestHandle::notify_socket(int fd, IoService::Event e)
 
 void RequestHandle::read_socket(int fd)
 {
-	char data[BLOCK_SIZE];
+	Buffer buffer;
+	buffer_calloc(buffer, BLOCK_SIZE);
 	size_t len = BLOCK_SIZE;
-	len = read(fd, data, len);
+	
+	len = read(fd, buffer.data, len);
 	
 	m_server_service.monitor().recv_bytes(len);
 	log(LOG_USER|LOG_DEBUG, "RequestHandle::read_socket fd %d recv %zu bytes data",m_fd,len);
 
-	Buffer buffer;
-	buffer.capacity = BLOCK_SIZE;
 	buffer.length = len;
-	buffer.data = data;
 	m_read_cache.write(buffer);
-	
+
 	Header head;
 	bool state = true;
 	while(state)
 	{
-		buffer.length = BLOCK_SIZE;
 		if(state=m_read_cache.read_package(head,buffer))
 		{
 			handle_request((unsigned char*)buffer.data, buffer.length);
@@ -68,27 +66,31 @@ void RequestHandle::read_socket(int fd)
 	{
 		close_connection();
 	}
+	buffer_free(buffer);
 }
 
 void RequestHandle::write_socket(int fd)
 {
-	char buf[BLOCK_SIZE];
 	Buffer tmp;
-	tmp.capacity = BLOCK_SIZE;
-	tmp.length = BLOCK_SIZE;
-	tmp.data = buf;
-
-	m_write_cache.have_a_look(tmp);
-	size_t len = tmp.length;
-	len = write(fd, buf, len);
-	
-	tmp.length = len;
-	if(len > 0)
+	buffer_calloc(tmp, BLOCK_SIZE);
+	while(true)
 	{
-		m_write_cache.read(tmp);
-		m_server_service.monitor().send_bytes(len);
-		log(LOG_USER|LOG_DEBUG, "RequestHandle::write_socket fd %d send %zu bytes data",m_fd,len);
+		tmp.length = BLOCK_SIZE;
+		m_write_cache.have_a_look(tmp);
+		size_t len = tmp.length;
+		len = write(fd, tmp.data, len);
+	
+		tmp.length = len;
+		if(len > 0)
+		{
+			m_write_cache.read(tmp);
+			m_server_service.monitor().send_bytes(len);
+			log(LOG_USER|LOG_DEBUG, "RequestHandle::write_socket fd %d send %zu bytes data",m_fd,len);
+		}
+		if(len != BLOCK_SIZE)
+			break;
 	}
+	buffer_free(tmp);
 }
 
 void RequestHandle::close_connection()
@@ -145,4 +147,6 @@ void RequestHandle::handle_request(unsigned char* buf, size_t len)
 		func,ptr,len);
 	
 	m_server_service.workers().append_task(task);
+	m_server_service.monitor().set_task_queue_size( m_server_service.workers().task_queue_size() );
+	m_server_service.monitor().set_running_workers( m_server_service.workers().running_workers() );
 }

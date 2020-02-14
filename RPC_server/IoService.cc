@@ -145,9 +145,11 @@ int IoService::modify_event(int fd, Event e)
 void IoService::response_event(int fd, Event e)
 {
 	FdEvent key(fd,e);
-	if(m_callback_map.count(key))
+	auto iter = m_callback_map.find(key);
+	if(iter != m_callback_map.cend())
 	{
-		m_callback_map[key](fd, e);
+		if(m_callback_map[key])
+			m_callback_map[key](fd, e);
 	}
 	else if(e != E_WRITE)
 	{

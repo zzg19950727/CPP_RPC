@@ -3,6 +3,7 @@
 #include <functional>
 #include <atomic>
 #include <thread>
+#include <mutex>
 #include <map>
 
 class IoService
@@ -17,6 +18,8 @@ public:
 	void poll();
 	int register_io(int fd, Event e, CallbackFunc& f);
 	int unregister_io(int fd, Event e);
+	int modify_io_event(int fd, Event e);
+
 private:
 	void create_epoll(int size);
 	void response_event(int fd, Event e);
@@ -24,9 +27,11 @@ private:
 	typedef std::pair<int,Event> FdEvent;
 	
 	std::atomic<bool> m_exit;
-	int m_epoll_fd;
-	std::thread m_thread;
+	std::thread* m_thread;
 	std::map<FdEvent, CallbackFunc> m_callback_map;
+
+	int m_epoll_fd;
+	std::mutex m_mutex;
 };
 
 #endif	//IOSERVICE_H

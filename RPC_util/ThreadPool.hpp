@@ -69,7 +69,11 @@ namespace RPC
 			while (!m_tasks.empty())
 				m_tasks.pop();
 		}
-
+		
+		int size()const
+		{
+			return m_tasks.size();
+		}
 	private:
 		std::queue<Task_type> m_tasks;
 		std::mutex m_mutex;
@@ -137,7 +141,7 @@ namespace RPC
 			if (!m_exit)
 			{
 				m_tasks.append_task(callback, f, std::forward<ARG>(args)...);
-				m_condition.notify_one();
+				m_condition.notify_all();
 			}
 		}
 
@@ -146,7 +150,7 @@ namespace RPC
 			if (!m_exit)
 			{
 				m_tasks.append_task(task);
-				m_condition.notify_one();
+				m_condition.notify_all();
 			}
 		}
 		
@@ -160,7 +164,7 @@ namespace RPC
 			std::this_thread::sleep_for(std::chrono::seconds(1));
 
 			for (unsigned int i = 0; i < m_workers.size(); ++i)
-				m_condition.notify_one();
+				m_condition.notify_all();
 			for (unsigned int i = 0; i < m_workers.size(); ++i)
 				m_workers[i].join();
 		}
@@ -173,24 +177,37 @@ namespace RPC
 			std::this_thread::sleep_for(std::chrono::seconds(1));
 
 			for (unsigned int i = 0; i < m_workers.size(); ++i)
-				m_condition.notify_one();
+				m_condition.notify_all();
 			for (unsigned int i = 0; i < m_workers.size(); ++i)
 				m_workers[i].join();
 		}
 
+		int task_queue_size()const
+		{
+			return m_tasks.size();
+		}
+
+		int running_workers()const
+		{
+			return m_running.load();
+		}
 	private:
 		void do_work()
 		{
+			++m_running;
 			for (;;)
 			{
 				Task_type task = m_tasks.take_task();
 				if (!task && !m_exit)
 				{
+					--m_running;
 					m_condition.wait();
+					++m_running;
 					continue;
 				}
 				else if (!task && m_exit)
 				{
+					--m_running;
 					break;
 				}
 				++m_running;

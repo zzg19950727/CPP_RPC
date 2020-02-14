@@ -4,89 +4,107 @@
 #include <thread>
 #include "add.h"
 
+static int count = 2000;
+
 void add_test()
 {
-	for(int i=1; i<20; ++i)
+	int m = 0;
+	for(int i=1; i<=count; ++i)
 	{
 		try
 		{
-			std::cout<<i<<"+"<<i<<"+"<<i<<"="<<add(i,i,i)<<std::endl;
+			add(i,i,i);
 		}
 		catch(std::exception& e)
 		{
-			std::cout<<"add "<<i;
-			std::cout<<e.what()<<std::endl;
+			++m;
 		}
 	}
+//	std::cout<<"add error:"<<m<<std::endl;
 }
 
 void sub_test()
 {
-	for(int i=1; i<20; ++i)
+	int m = 0;
+	for(int i=1; i<=count; ++i)
 	{
 		try
 		{
-			std::cout<<i<<"-"<<i<<"="<<sub(i,i)<<std::endl;
+			sub(i,i);
 		}
 		catch(std::exception& e)
 		{
-			std::cout<<"sub "<<i;
-			std::cout<<e.what()<<std::endl;
+			++m;
 		}
 	}
+//	std::cout<<"sub error:"<<m<<std::endl;
 }
 
 void mul_test()
 {
-	for(int i=1; i<20; ++i)
+	int m = 0;
+	for(int i=1; i<=count; ++i)
 	{
 		try
 		{
-			std::cout<<i<<"*"<<i<<"="<<mul(i,i)<<std::endl;
+			mul(i,i);
 		}
 		catch(std::exception& e)
 		{
-			std::cout<<"mul "<<i;
-			std::cout<<e.what()<<std::endl;
+			++m;
 		}
 	}
+//	std::cout<<"mul error:"<<m<<std::endl;
 }
 
 void div_test()
 {
-	for(int i=1; i<20; ++i)
+	int m = 0;
+	for(int i=1; i<=count; ++i)
 	{
 		try
 		{
 			double a = i;
-			std::cout<<i<<"/"<<i<<"="<<div(a,a)<<std::endl;
+			div(a,a);
 		}
 		catch(std::exception& e)
 		{
-			std::cout<<"div "<<i;
-			std::cout<<e.what()<<std::endl;
+			++m;
 		}
 	}
+//	std::cout<<"div error:"<<m<<std::endl;
 }
 
 void echo_test()
 {
-	for(int i=1; i<20; ++i)
+	int m = 0;
+	for(int i=1; i<=count; ++i)
 	{
 		try
 		{
-			std::cout<<"echo:"<<echo()<<std::endl;
+			echo();
 		}
 		catch(std::exception& e)
 		{
-			std::cout<<"echo "<<i;
-			std::cout<<e.what()<<std::endl;
+			++m;
 		}
 	}
+//	std::cout<<"echo error:"<<m<<std::endl;
 }
 
 int main()
 {
+	std::thread* workers[1000];
+	for(int i=0; i<1; ++i)
+	{
+		workers[i] = new std::thread(add_test);
+	}
+	for(int i=0; i<1; ++i)
+	{
+		workers[i]->join();
+		delete workers[i];
+	}
+	return 0;
 	std::thread thread1(add_test);
 	std::thread thread2(sub_test);
 	std::thread thread3(mul_test);

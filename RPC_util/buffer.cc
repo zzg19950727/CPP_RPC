@@ -11,7 +11,10 @@ void buffer_calloc(Buffer& buf, unsigned int len)
 	if(buf.data)
 		memset(buf.data, 0, buf.capacity);
 	else
+	{
 		buf.capacity = 0;
+		printf("no more memory");
+	}
 	buf.length = 0;
 }
 
@@ -57,7 +60,6 @@ BufferCacheBase::~BufferCacheBase()
 
 int BufferCacheBase::size()const
 {
-	std::lock_guard<std::mutex> lock(m_mutex);
 	if(m_head <= m_tail)
 		return m_tail-m_head;
 	else
@@ -71,13 +73,12 @@ int BufferCacheBase::capacity()const
 
 bool BufferCacheBase::is_empty()const
 {
-	std::lock_guard<std::mutex> lock(m_mutex);
 	return m_head == m_tail;
 }
 
 bool BufferCacheBase::is_full()const
 {
-	std::lock_guard<std::mutex> lock(m_mutex);
+	return ((m_tail+1))==m_head;
 	return ((m_tail+1)%m_buffer.capacity)==m_head;
 }
 
@@ -103,6 +104,7 @@ int BufferCacheBase::have_a_look(Buffer& buf)
 
 int BufferCacheBase::read(Buffer& buf)
 {
+	std::lock_guard<std::recursive_mutex> lock(m_mutex);
 	if(buf.length > size())
 		buf.length = size();
 	if(is_empty())
@@ -125,7 +127,8 @@ int BufferCacheBase::read(Buffer& buf)
 
 int BufferCacheBase::write(const Buffer& buf)
 {
-	if(is_full() || buf.length > capacity()-size())
+	std::lock_guard<std::recursive_mutex> lock(m_mutex);
+	if(is_full() || buf.length > capacity()-size() || buf.length <= 0)
 		return 0;
 
 	int length = buf.length;
@@ -183,6 +186,7 @@ inline unsigned int small_end_to_local(unsigned int n)
 
 bool BufferCache::write_package(const char* buffer, unsigned int len)
 {
+	std::lock_guard<std::recursive_mutex> lock(m_mutex);
 	Header head;
 	head.magic = MAGIC;
 	head.length = len;
@@ -203,17 +207,21 @@ bool BufferCache::write_package(const char* buffer, unsigned int len)
 
 bool BufferCache::read_package(Header& head, Buffer& buffer)
 {
+	std::lock_guard<std::recursive_mutex> lock(m_mutex);
+	
 	if(size() < sizeof(Header))
 		return false;
-
+	
 	Buffer buf;
 	buf.capacity = sizeof(Header);
 	buf.length = sizeof(Header);
 	buf.data = (char*)&head;
+
 	have_a_look(buf);
-	
 	if(head.magic != MAGIC)
+	{
 		return false;
+	}
 	if(size() < sizeof(Header)+head.length)
 		return false;
 
@@ -225,4 +233,3 @@ bool BufferCache::read_package(Header& head, Buffer& buffer)
 	read(buffer);
 	return true;
 }
-

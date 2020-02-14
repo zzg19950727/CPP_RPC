@@ -13,17 +13,18 @@ public:
 	enum Event{E_READ=0,E_WRITE,E_RW};
 	typedef std::function<void(int,Event)> CallbackFunc;
 	
-	IoService(int size, int threads=10);
+	IoService(int size, int threads=20);
 	~IoService();
 	
 	void poll();
 	int register_io(int fd, Event e, CallbackFunc& f);
 	int unregister_io(int fd, Event e);
+	int modify_event(int fd, Event e);
+
 private:
 	void create_epoll(int size);
 	int add_event(int fd, Event e);
 	int remove_event(int fd, Event e);
-	int modify_event(int fd, Event e);
 	void response_event(int fd, Event e);
 
 	typedef std::pair<int,Event> FdEvent;

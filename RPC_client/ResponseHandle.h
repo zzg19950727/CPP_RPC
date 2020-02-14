@@ -30,6 +30,7 @@ private:
 	TimerManager& m_timer_manager;
 	RPC::Condition& m_condition;
 	Buffer m_buffer;
+	char buf[2048];
 	Timer m_timer;
 	std::mutex m_mutex;
 	State m_state;

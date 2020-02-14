@@ -4,8 +4,8 @@
 #include <syslog.h>
 #include <errno.h>
 #include <stdio.h>
-
-#define log(priority, ...) syslog(priority, __VA_ARGS__)
+#define log(priority, ...)
+#define log1(priority, ...) syslog(priority, __VA_ARGS__)
 #define log2(priority, ...) printf(__VA_ARGS__),printf("\n")
 void openlog(const char *ident, const char *dir, int priority);
 void closelog();

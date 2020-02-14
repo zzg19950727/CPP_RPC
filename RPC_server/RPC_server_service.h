@@ -16,8 +16,9 @@ public:
 	typedef std::map<std::string,RPC_func_type>	RPC_func_map;
 	ServerService(ServerServiceConfig& config);
 	~ServerService();
+	static ServerService& instance();
 	void start_monite();
-	void register_rpc_func(const std::string& func_name, RPC_func_type& func);
+	void register_rpc_func(const std::string& func_name, RPC_func_type func);
 	void unregister_rpc_func(const std::string& func_name);
 	
 private:

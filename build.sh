@@ -18,7 +18,10 @@ if [ ! -f protobuf/bin/protoc ]; then
 	cd ../
 fi
 
-echo "export LD_LIBRARY_PATH=$PWD/protobuf/lib:$PWD/RPC_client/lib:$PWD/RPC_server/lib" >> ~/.bashrc
+echo "export LD_LIBRARY_PATH=$PWD/protobuf/lib" >> ~/.bashrc
 source ~/.bashrc
+mkdir build
+cd build
+cmake ..
 make
 exit $?

@@ -41,10 +41,10 @@ public:
 	int read(Buffer& buf);
 	int write(const Buffer& buf);
 
-private:
+protected:
 	Buffer m_buffer;
 	int m_head,m_tail;
-	mutable std::mutex m_mutex;
+	mutable std::recursive_mutex m_mutex;
 };
 
 class BufferCache : public BufferCacheBase

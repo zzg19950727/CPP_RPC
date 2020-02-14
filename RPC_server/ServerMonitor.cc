@@ -108,6 +108,16 @@ void ServerMonitor::send_responses(int n)
 	m_send_responses += n;
 }
 
+void ServerMonitor::set_task_queue_size(int size)
+{
+	task_queue_size = size;
+}
+
+void ServerMonitor::set_running_workers(int count)
+{
+	running_workers = count;
+}
+
 void ServerMonitor::monite(int timeout)
 {
 	long long connections = 0;
@@ -121,6 +131,17 @@ void ServerMonitor::monite(int timeout)
 	long long last_send_bytes = 0;
 	long long last_recv_requests = 0;
 	long long last_send_responses = 0;
+
+	static long long max_recv_data_speed = 0;
+	static long long max_send_data_speed = 0;
+	static long long max_recv_req_speed = 0;
+	static long long max_send_res_speed = 0;
+
+	static std::string max_recv_data_speed_str;
+	static std::string max_send_data_speed_str;
+	static std::string max_recv_req_speed_str;
+	static std::string max_send_res_speed_str;
+
 	while(!m_exit)
 	{
 		DateTime::sleep(timeout);
@@ -136,11 +157,34 @@ void ServerMonitor::monite(int timeout)
 		std::string recv_request_speed = to_string((recv_requests-last_recv_requests)*1000.0/timeout)+"/s";
 		std::string send_response_speed = to_string((send_responses-last_send_responses)*1000.0/timeout)+"/s";
 		
+		if((recv_bytes-last_recv_bytes)*1000.0 / timeout > max_recv_data_speed)
+		{
+			max_recv_data_speed = (recv_bytes-last_recv_bytes)*1000.0 / timeout;
+			max_recv_data_speed_str = recv_byte_speed;
+		}
+		if((send_bytes-last_send_bytes)*1000.0 / timeout > max_send_data_speed)
+		{
+			max_send_data_speed = (send_bytes-last_send_bytes)*1000.0 / timeout;
+			max_send_data_speed_str = send_byte_speed;
+		}
+		if((recv_requests-last_recv_requests)*1000.0/timeout > max_recv_req_speed)
+		{
+			max_recv_req_speed = (recv_requests-last_recv_requests)*1000.0/timeout;
+			max_recv_req_speed_str = recv_request_speed;
+		}
+		if((send_responses-last_send_responses)*1000.0/timeout > max_send_res_speed)
+		{
+			max_send_res_speed = (send_responses-last_send_responses)*1000.0/timeout;
+			max_send_res_speed_str = send_response_speed;
+		}
 		//printf("\r\e[K");
 		clrsr();
-		printf("connections:%lld\n, recv request %lld : %s\n, send response %lld : %s\n, recv data %s : %s\n, send data %s : %s\n",
-			connections, recv_requests, recv_request_speed.c_str(), send_responses, send_response_speed.c_str(),
-			bytes2str(recv_bytes).c_str(), recv_byte_speed.c_str(), bytes2str(send_bytes).c_str(), send_byte_speed.c_str());
+		printf("connections:%lld\nrecv request %lld : %s, %s\nsend response %lld : %s, %s\nrecv data %s : %s, %s\nsend data %s : %s, %s\ntask queue size:%lld\nrunning workers:%lld\n",
+			connections, recv_requests, recv_request_speed.c_str(), max_recv_req_speed_str.c_str(), 
+			send_responses, send_response_speed.c_str(), max_send_res_speed_str.c_str(),
+			bytes2str(recv_bytes).c_str(), recv_byte_speed.c_str(), max_recv_data_speed_str.c_str(),
+			bytes2str(send_bytes).c_str(), send_byte_speed.c_str(), max_send_data_speed_str.c_str(),
+			task_queue_size, running_workers);
 		fflush(stdout);
 
 		last_connections = connections;

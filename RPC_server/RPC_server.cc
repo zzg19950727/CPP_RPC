@@ -7,19 +7,17 @@
 #include <unistd.h>
 #include <cstring>
 
-ServerServiceConfig g_server_config(0);
-ServerService g_server_service(g_server_config);
 
 void run()
 {
-	g_server_service.start_monite();
+	ServerService::instance().start_monite();
 }
 
 RegisHelper::RegisHelper(const std::string& func_name, RPC_func_type func)
 {
 	log(LOG_USER|LOG_DEBUG, "RegisHelper register RPC:%s",func_name.c_str());
 	ServerService::RPC_func_type rpc_func(func);
-	g_server_service.register_rpc_func(func_name,rpc_func);
+	ServerService::instance().register_rpc_func(func_name,rpc_func);
 }
 
 int start_server(int port, int listen_n)
@@ -62,7 +60,7 @@ int accept_connection(int fd)
 }
 
 ServerService::ServerService(ServerServiceConfig& config)
-	:m_io_service(config.max_client_count()),
+	:m_io_service(config.max_client_count(), config.epoll_workers()),
 	m_workers(config.worker_count()),
 	m_config(config),
 	m_clients(0)
@@ -83,12 +81,19 @@ ServerService::~ServerService()
 	close_connection();
 }
 
+ServerService& ServerService::instance()
+{
+	static ServerServiceConfig g_server_config("RPC_server.conf");
+	static ServerService g_server_service(g_server_config);
+	return g_server_service;
+}
+
 void ServerService::start_monite()
 {
 	m_monitor.monite(2000);
 }
 
-void ServerService::register_rpc_func(const std::string& func_name, RPC_func_type& func)
+void ServerService::register_rpc_func(const std::string& func_name, RPC_func_type func)
 {
 	if(m_rpc_funcs.count(func_name))
 		log(LOG_USER|LOG_WARNING, "ServerService::register_rpc_func %s has registered",func_name.c_str());

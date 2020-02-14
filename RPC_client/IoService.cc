@@ -8,19 +8,20 @@ IoService::IoService(int size)
 	: m_exit(false)
 {
 	create_epoll(size);
-	std::thread tmp(std::bind(&IoService::poll, this));
-	m_thread.swap(tmp);
+	m_thread = new std::thread(std::bind(&IoService::poll, this));
 }
 
 IoService::~IoService()
 {
 	m_exit.store(true);
 	close(m_epoll_fd);
-	m_thread.join();
+	m_thread->join();
+	delete m_thread;
 }
 
 void IoService::poll()
 {
+	char buf[2048];
 	log(LOG_USER|LOG_DEBUG, "IoService start poll");
 	struct epoll_event event[10];
 	while(!m_exit)
@@ -35,13 +36,12 @@ void IoService::poll()
 		{
 			continue;
 		}
-		
 		for(int i=0; i<state; ++i)
 		{
-			if(event[i].events&EPOLLIN)
-				response_event(event[i].data.fd,E_READ);
 			if(event[i].events&EPOLLOUT)
 				response_event(event[i].data.fd,E_WRITE);
+			if(event[i].events&EPOLLIN)
+				response_event(event[i].data.fd,E_READ);
 		}
 	}
 	m_epoll_fd = -1;
@@ -102,6 +102,16 @@ int IoService::unregister_io(int fd, Event e)
 	return 0;
 }
 
+int IoService::modify_io_event(int fd, Event e)
+{
+	std::lock_guard<std::mutex> lock(m_mutex);
+	
+	struct epoll_event event;
+	event.events = epoll_event(e);
+	event.data.fd = fd;
+	return epoll_ctl(m_epoll_fd, EPOLL_CTL_MOD, fd, &event);
+}
+
 void IoService::create_epoll(int size)
 {
 	m_epoll_fd = epoll_create(size);
@@ -111,8 +121,14 @@ void IoService::create_epoll(int size)
 void IoService::response_event(int fd, Event e)
 {
 	FdEvent key(fd,e);
-	if(m_callback_map.count(key))
-		m_callback_map[key](fd, e);
+	auto iter = m_callback_map.find(key);
+	if(iter != m_callback_map.cend())
+	{
+		if(m_callback_map[key])
+			m_callback_map[key](fd, e);
+	}
 	else if(e != E_WRITE)
+	{
 		log(LOG_USER|LOG_WARNING , "IoService:unknow fd:%d and Event:%d",fd,e);
+	}
 }
